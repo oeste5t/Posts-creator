@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estúdio de Criação Profissional</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        .blue-button {
+            background-color: #2563eb;
+            transition: all 0.2s ease;
+        }
+
+        .blue-button:hover:not(:disabled) {
+            background-color: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .blue-button:active:not(:disabled) {
+            transform: translateY(0px);
+        }
+
+        .preview-card {
+            aspect-ratio: 4 / 5;
+            width: 100%;
+            max-width: 450px;
+            position: relative;
+            background-color: #000;
+            overflow: hidden;
+            border: 1px solid #1a1a1a;
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.9);
+        }
+
+        .shadow-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .custom-range {
+            -webkit-appearance: none;
+            height: 3px;
+            background: #262626;
+            border-radius: 5px;
+        }
+
+        .custom-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #2563eb;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #fff;
+        }
+
+        .highlight-text {
+            color: #ffffff;
+            font-weight: 800;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: #404040;
+        }
+
+        /* Modal Background */
+        #settings-modal {
+            background-color: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-10 flex flex-col items-center min-h-screen">
+
+    <!-- Header com Engrenagem -->
+    <div class="w-full max-w-6xl flex justify-between items-center mb-6">
+        <div class="text-[10px] font-bold tracking-[0.5em] text-zinc-700 uppercase">Professional Studio</div>
+        <button onclick="openSettings()" class="p-2 text-zinc-500 hover:text-white transition-colors">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+        </button>
+    </div>
+
+    <!-- Alternar Modos -->
+    <div class="w-full max-w-sm flex bg-zinc-900/40 p-1 rounded-2xl mb-10 border border-white/5">
+        <button id="btn-auto" onclick="switchMode('auto')" class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all text-zinc-400">
+            <i data-lucide="layers" class="w-4 h-4"></i> Carrossel
+        </button>
+        <button id="btn-manual" onclick="switchMode('manual')" class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all bg-blue-600 text-white shadow-lg shadow-blue-900/20">
+            <i data-lucide="edit-2" class="w-4 h-4"></i> Único
+        </button>
+    </div>
+
+    <!-- Feedback de Mensagens -->
+    <div id="toast" class="hidden fixed top-6 z-[110] bg-zinc-900 border border-white/10 text-white px-6 py-3 rounded-2xl flex items-center gap-3 shadow-2xl">
+        <i id="toast-icon" data-lucide="info" class="w-5 h-5"></i> <span id="toast-text" class="text-sm font-medium"></span>
+    </div>
+
+    <!-- ################# JANELA DE CONFIGURAÇÃO (API KEY) ################# -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <div class="bg-zinc-900 border border-white/10 w-full max-w-md p-8 rounded-3xl shadow-2xl space-y-6">
+            <div class="text-center space-y-2">
+                <h2 class="text-xl font-bold">Configuração de Acesso</h2>
+                <p class="text-zinc-500 text-xs tracking-wide leading-relaxed">Insira sua chave de acesso para habilitar a geração de imagens e o processamento de texto.</p>
+            </div>
+            <div class="space-y-4">
+                <input type="password" id="api-key-input" placeholder="Cole sua chave aqui..." class="w-full bg-black border border-white/10 rounded-xl py-4 px-5 focus:outline-none focus:border-blue-500 transition-all text-white font-mono text-sm">
+                <div class="flex gap-2">
+                    <button onclick="saveApiKey()" class="flex-1 blue-button text-white py-4 rounded-xl font-bold text-sm tracking-widest uppercase">Salvar Chave</button>
+                    <button id="btn-close-settings" onclick="closeSettings()" class="px-6 bg-zinc-800 text-white py-4 rounded-xl font-bold text-sm hover:bg-zinc-700 hidden">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ################# CONTEÚDO AUTOMÁTICO ################# -->
+    <div id="section-auto" class="w-full flex flex-col items-center hidden">
+        <div class="w-full max-w-3xl mb-12 space-y-6">
+            <div class="flex flex-col md:flex-row gap-3">
+                <input type="text" id="auto-prompt" placeholder="Qual o tema do carrossel?" class="flex-1 bg-zinc-900/60 border border-white/5 rounded-2xl py-4 px-6 text-lg focus:outline-none focus:border-blue-600/30 transition-all text-white font-light">
+                <div class="flex gap-2">
+                    <div class="relative">
+                        <input type="number" id="auto-count" value="6" min="1" max="10" class="w-16 h-full bg-zinc-900/60 border border-white/5 rounded-2xl text-center focus:outline-none text-white font-bold">
+                        <span class="absolute -top-2 left-1/2 -translate-x-1/2 bg-black px-2 text-[8px] font-bold text-zinc-600 uppercase tracking-tighter">Slides</span>
+                    </div>
+                    <div class="relative">
+                        <input type="text" id="user-at-auto" placeholder="@seuuser" class="w-32 h-full bg-zinc-900/60 border border-white/5 rounded-2xl px-4 focus:outline-none text-sm lowercase text-white" oninput="updateUsername(this.value)">
+                        <span class="absolute -top-2 left-4 bg-black px-2 text-[8px] font-bold text-zinc-600 uppercase tracking-tighter">Identidade</span>
+                    </div>
+                    <button id="btn-generate-auto" onclick="generateAuto()" class="blue-button text-white rounded-2xl flex items-center justify-center px-6 py-4">
+                        <i data-lucide="arrow-right" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="loader-auto" class="hidden flex flex-col items-center gap-3">
+                <div class="w-full h-0.5 bg-zinc-900 rounded-full overflow-hidden max-w-xs w-full">
+                    <div id="progress-bar" class="h-full bg-blue-600 transition-all duration-700 w-0"></div>
+                </div>
+                <p id="status-text-auto" class="text-[9px] uppercase tracking-[0.5em] text-zinc-500 font-bold"></p>
+            </div>
+        </div>
+
+        <div id="display-auto" class="hidden flex flex-col items-center fade-in">
+            <div id="auto-counter" class="mb-5 text-[9px] font-bold tracking-[0.5em] text-zinc-600 uppercase px-5 py-2 rounded-full border border-white/5 bg-zinc-900/20"></div>
+            <div class="relative group w-full max-w-[450px]">
+                <div id="preview-auto" class="preview-card bg-cover bg-center">
+                    <div id="overlay-auto" class="shadow-overlay"></div>
+                    <div class="absolute bottom-10 left-10 right-10 flex flex-col gap-4">
+                        <div class="username-display text-sm font-semibold text-white/40 lowercase tracking-wide"></div>
+                        <div id="content-auto"></div>
+                    </div>
+                </div>
+                <button onclick="navSlide(-1)" class="absolute -left-16 top-1/2 -translate-y-1/2 p-3 rounded-full bg-zinc-900/80 hover:bg-white hover:text-black transition-all">
+                    <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                </button>
+                <button onclick="navSlide(1)" class="absolute -right-16 top-1/2 -translate-y-1/2 p-3 rounded-full bg-zinc-900/80 hover:bg-white hover:text-black transition-all">
+                    <i data-lucide="chevron-right" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <button onclick="download('auto')" class="mt-10 blue-button text-white py-4 px-14 rounded-2xl font-bold text-sm tracking-[0.1em] uppercase flex items-center gap-3">
+                <i data-lucide="download" class="w-4 h-4"></i> Salvar Imagem
+            </button>
+        </div>
+    </div>
+
+    <!-- ################# CONTEÚDO MANUAL ################# -->
+    <div id="section-manual" class="w-full max-w-6xl flex flex-col lg:flex-row gap-12 items-start fade-in">
+        <div class="flex-1 w-full space-y-8">
+            <div class="bg-zinc-900/30 p-8 rounded-3xl border border-white/5 space-y-6">
+                <div>
+                    <label class="text-[10px] font-bold tracking-[0.3em] text-zinc-600 uppercase mb-3 block flex justify-between">
+                        <span>Texto Principal</span>
+                        <span class="text-blue-500/40 italic">Processamento inteligente ativado</span>
+                    </label>
+                    <textarea id="manual-text" oninput="renderManual()" class="w-full bg-black/40 border border-white/5 rounded-2xl py-5 px-6 focus:outline-none focus:border-blue-600/20 transition-all h-44 resize-none text-white leading-relaxed text-lg" placeholder="Escreva aqui..."></textarea>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold tracking-[0.3em] text-zinc-600 uppercase mb-3 block">Sua Assinatura (@)</label>
+                    <input type="text" id="user-at-manual" oninput="updateUsername(this.value)" class="w-full bg-black/40 border border-white/5 rounded-2xl py-4 px-6 focus:outline-none focus:border-blue-600/20 text-white lowercase" placeholder="@seunome">
+                </div>
+                <button id="btn-generate-manual" onclick="generateManual()" class="w-full blue-button text-white py-5 rounded-2xl font-extrabold text-sm tracking-[0.2em] uppercase flex items-center justify-center gap-3">
+                    <i data-lucide="refresh-cw" class="w-5 h-5" id="icon-manual"></i> <span id="txt-btn-manual">Sincronizar Arte</span>
+                </button>
+            </div>
+
+            <div class="bg-zinc-900/10 p-8 rounded-3xl border border-white/5 space-y-8">
+                <div class="flex items-center gap-3 mb-2 opacity-30">
+                    <i data-lucide="sliders" class="w-4 h-4"></i>
+                    <h3 class="text-[10px] font-bold tracking-[0.4em] uppercase">Refinamento Visual</h3>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="flex justify-between items-end">
+                        <label class="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Dimensão da Fonte</label>
+                        <span id="val-text-size" class="text-xs font-mono text-blue-500">24px</span>
+                    </div>
+                    <input type="range" id="slider-text-size" min="16" max="38" value="24" oninput="updateDesign()" class="w-full custom-range">
+                </div>
+
+                <div class="space-y-4">
+                    <div class="flex justify-between items-end">
+                        <label class="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Proporção do Destaque</label>
+                        <span id="val-highlight-size" class="text-xs font-mono text-blue-500">115%</span>
+                    </div>
+                    <input type="range" id="slider-highlight-size" min="1" max="1.6" step="0.05" value="1.15" oninput="updateDesign()" class="w-full custom-range">
+                </div>
+
+                <div class="space-y-4">
+                    <div class="flex justify-between items-end">
+                        <label class="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Densidade da Sombra</label>
+                        <span id="val-darkness" class="text-xs font-mono text-blue-500">75%</span>
+                    </div>
+                    <input type="range" id="slider-darkness" min="0" max="100" value="75" oninput="updateDesign()" class="w-full custom-range">
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 w-full flex flex-col items-center lg:sticky lg:top-10">
+            <div class="relative w-full max-w-[450px]">
+                <div id="preview-manual" class="preview-card bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1516110833967-0b5716ca1387?q=80&w=1080&auto=format&fit=crop');">
+                    <div id="overlay-manual" class="shadow-overlay"></div>
+                    <div class="absolute bottom-10 left-10 right-10 flex flex-col gap-4">
+                        <div class="username-display text-sm font-semibold text-white/40 lowercase tracking-wide">@seunome</div>
+                        <div id="content-manual" class="text-zinc-100 font-light leading-snug drop-shadow-2xl whitespace-pre-line"></div>
+                    </div>
+                </div>
+                <button onclick="download('manual')" class="w-full blue-button text-white py-5 rounded-2xl font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-3 mt-8 shadow-2xl">
+                    <i data-lucide="download" class="w-4 h-4"></i> Baixar Arquivo PNG
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ESTADO GLOBAL
+        let API_KEY = localStorage.getItem('insta_post_api_key') || "";
+        let currentMode = 'manual';
+        let slides = [];
+        let currentIndex = 0;
+        const defaultImage = "https://images.unsplash.com/photo-1516110833967-0b5716ca1387?q=80&w=1080&auto=format&fit=crop";
+
+        // INICIALIZAR
+        window.onload = () => {
+            lucide.createIcons();
+            if (!API_KEY) {
+                openSettings();
+            } else {
+                document.getElementById('btn-close-settings').classList.remove('hidden');
+            }
+            renderManual();
+            updateDesign();
+        };
+
+        // --- GERENCIAMENTO DE CHAVE ---
+        function openSettings() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            document.getElementById('api-key-input').value = API_KEY;
+        }
+
+        function closeSettings() {
+            if (!API_KEY) {
+                showMsg("Por favor, salve uma chave para continuar.", true);
+                return;
+            }
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function saveApiKey() {
+            const val = document.getElementById('api-key-input').value.trim();
+            if (val) {
+                API_KEY = val;
+                localStorage.setItem('insta_post_api_key', val);
+                document.getElementById('btn-close-settings').classList.remove('hidden');
+                closeSettings();
+                showMsg("Chave salva com sucesso!");
+            } else {
+                showMsg("Chave inválida.", true);
+            }
+        }
+
+        // --- SISTEMA DE TABS ---
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('section-auto').classList.toggle('hidden', mode !== 'auto');
+            document.getElementById('section-manual').classList.toggle('hidden', mode !== 'manual');
+            
+            const btnBase = "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all ";
+            document.getElementById('btn-auto').className = btnBase + (mode === 'auto' ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" : "text-zinc-500 hover:text-white");
+            document.getElementById('btn-manual').className = btnBase + (mode === 'manual' ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" : "text-zinc-500 hover:text-white");
+            lucide.createIcons();
+        }
+
+        function updateUsername(val) {
+            const clean = val.toLowerCase().replace(/@/g, '');
+            const final = val ? '@' + clean : "@seunome";
+            document.querySelectorAll('.username-display').forEach(el => el.innerText = final);
+            document.getElementById('user-at-auto').value = clean;
+            document.getElementById('user-at-manual').value = clean;
+        }
+
+        // --- LÓGICA DE TEXTO E IMAGEM ---
+        function formatContent(text, scale = 1.15) {
+            if (!text) return "";
+            return text.replace(/\*\*(.*?)\*\*/g, `<span class="highlight-text" style="font-size: ${scale}em">$1</span>`);
+        }
+
+        async function getArt(prompt) {
+            if (!API_KEY) return defaultImage;
+            for (let i = 0; i < 6; i++) {
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${API_KEY}`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            instances: [{ prompt: `High-end cinematic photography, dark moody tones, professional lighting, depth of field, minimalist, ${prompt}` }],
+                            parameters: { sampleCount: 1 }
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.predictions?.[0]?.bytesBase64Encoded) return `data:image/png;base64,${data.predictions[0].bytesBase64Encoded}`;
+                    await new Promise(r => setTimeout(r, 2000));
+                } catch (e) {
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+            return defaultImage;
+        }
+
+        // --- CONTROLES MANUAIS ---
+        function updateDesign() {
+            const size = document.getElementById('slider-text-size').value;
+            const hScale = document.getElementById('slider-highlight-size').value;
+            const dark = document.getElementById('slider-darkness').value;
+
+            document.getElementById('val-text-size').innerText = size + "px";
+            document.getElementById('val-highlight-size').innerText = Math.round(hScale * 100) + "%";
+            document.getElementById('val-darkness').innerText = dark + "%";
+
+            const preview = document.getElementById('content-manual');
+            preview.style.fontSize = size + "px";
+            document.getElementById('overlay-manual').style.background = `linear-gradient(to top, rgba(0,0,0,${dark/100 + 0.25}) 0%, rgba(0,0,0,${dark/100}) 40%, transparent 80%)`;
+            
+            renderManual();
+        }
+
+        function renderManual() {
+            const text = document.getElementById('manual-text').value || "Sua frase aparecerá aqui.";
+            const hScale = document.getElementById('slider-highlight-size').value;
+            document.getElementById('content-manual').innerHTML = formatContent(text, hScale);
+        }
+
+        async function generateManual() {
+            const text = document.getElementById('manual-text').value;
+            if(!text) return;
+            if(!API_KEY) { openSettings(); return; }
+
+            setLoading('manual', true);
+            try {
+                const prompt = `Analise: "${text}". Retorne JSON: {"txt": "texto com **", "img": "prompt de imagem dark em ingles focado no sentimento sem humanos ou violencia"}`;
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+                const data = await res.json();
+                const json = JSON.parse(data.candidates[0].content.parts[0].text);
+                
+                document.getElementById('manual-text').value = json.txt;
+                updateDesign();
+                
+                const art = await getArt(json.img);
+                document.getElementById('preview-manual').style.backgroundImage = `url('${art}')`;
+            } catch (e) {
+                showMsg("Houve um erro no processamento.", true);
+            } finally {
+                setLoading('manual', false);
+            }
+        }
+
+        // --- CONTROLES AUTOMÁTICOS ---
+        async function generateAuto() {
+            const prompt = document.getElementById('auto-prompt').value;
+            const total = document.getElementById('auto-count').value;
+            if(!prompt) return;
+            if(!API_KEY) { openSettings(); return; }
+
+            setLoading('auto', true);
+            try {
+                const sys = `Crie ${total} slides. Texto simples BR. Use ** em 2 termos fortes. Retorne JSON: { "slides": [{ "title": "...", "body": "...", "imgPrompt": "dark minimalist scene description" }] }`;
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Tema: ${prompt}` }] }],
+                        systemInstruction: { parts: [{ text: sys }] },
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+                const data = await res.json();
+                const list = JSON.parse(data.candidates[0].content.parts[0].text).slides;
+                
+                slides = [];
+                for (let i = 0; i < list.length; i++) {
+                    document.getElementById('status-text-auto').innerText = `Sincronizando ${i+1}/${list.length}...`;
+                    document.getElementById('progress-bar').style.width = ((i+1)/list.length*100) + "%";
+                    const art = await getArt(list[i].imgPrompt);
+                    slides.push({ ...list[i], url: art });
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+
+                currentIndex = 0;
+                renderAuto();
+                document.getElementById('display-auto').classList.remove('hidden');
+            } catch (e) {
+                showMsg("Falha na sincronização múltipla.", true);
+            } finally {
+                setLoading('auto', false);
+            }
+        }
+
+        function renderAuto() {
+            const s = slides[currentIndex];
+            document.getElementById('auto-counter').innerText = `Slide ${currentIndex + 1} / ${slides.length}`;
+            document.getElementById('preview-auto').style.backgroundImage = `url('${s.url}')`;
+            document.getElementById('content-auto').innerHTML = `
+                <div class="text-2xl font-bold leading-tight text-white mb-2">${formatContent(s.title, 1.1)}</div>
+                <div class="text-lg font-light text-zinc-300 leading-relaxed">${formatContent(s.body, 1.1)}</div>
+            `;
+        }
+
+        function navSlide(step) {
+            currentIndex = (currentIndex + step + slides.length) % slides.length;
+            renderAuto();
+        }
+
+        // --- UTILITÁRIOS ---
+        function setLoading(mode, state) {
+            if (mode === 'auto') {
+                document.getElementById('loader-auto').classList.toggle('hidden', !state);
+                document.getElementById('btn-generate-auto').disabled = state;
+                document.getElementById('status-text-auto').innerText = "Iniciando roteiro...";
+                document.getElementById('progress-bar').style.width = "0%";
+            } else {
+                document.getElementById('btn-generate-manual').disabled = state;
+                document.getElementById('txt-btn-manual').innerText = state ? "Processando..." : "Sincronizar Arte";
+                document.getElementById('icon-manual').className = "w-5 h-5 " + (state ? "animate-spin" : "");
+                lucide.createIcons();
+            }
+        }
+
+        function showMsg(msg, isError = false) {
+            const t = document.getElementById('toast');
+            const ti = document.getElementById('toast-icon');
+            t.className = `fixed top-6 z-[210] px-6 py-3 rounded-2xl flex items-center gap-3 shadow-2xl transition-all border ${isError ? 'bg-red-900 border-red-500' : 'bg-zinc-900 border-white/10'}`;
+            document.getElementById('toast-text').innerText = msg;
+            ti.setAttribute('data-lucide', isError ? 'alert-circle' : 'info');
+            lucide.createIcons();
+            t.classList.remove('hidden');
+            setTimeout(() => t.classList.add('hidden'), 5000);
+        }
+
+        async function download(mode) {
+            const target = mode === 'auto' ? document.getElementById('preview-auto') : document.getElementById('preview-manual');
+            const canvas = await html2canvas(target, { useCORS: true, scale: 3, backgroundColor: "#000" });
+            const link = document.createElement('a');
+            link.download = `post-cinematic-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+  </html>
