@@ -1,7 +1,7 @@
 {
   "name": "bot-whatsapp-gemini",
   "version": "1.0.0",
-  "description": "Bot de WhatsApp integrado com Gemini",
+  "description": "Bot de WhatsApp leve para servidores free",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -11,8 +11,9 @@
   },
   "dependencies": {
     "@google/genai": "latest",
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "6.6.0",
     "express": "^4.19.2",
-    "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.26.0"
+    "qrcode-terminal": "^0.12.0"
   }
 }
